@@ -43,3 +43,54 @@ body {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
 }
+
+/* Interlaced video effect */
+.interlace {
+  --line: 2px;              /* total line height */
+  --gap: 2px;               /* clear space between lines */
+  --opacity: 0.16;          /* darkness of the scanlines */
+  --tilt: 0deg;             /* slight tilt like CRT (e.g., 0.2deg) */
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+}
+
+.interlace > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: inherit;
+}
+
+/* overlay of dark lines */
+.interlace::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: multiply;           /* helps the lines "sit" on the image */
+  background-image:
+    repeating-linear-gradient(
+      calc(0deg + var(--tilt)),
+      rgba(0,0,0,var(--opacity)) 0,
+      rgba(0,0,0,var(--opacity)) var(--line),
+      transparent var(--line),
+      transparent calc(var(--line) + var(--gap))
+    );
+  z-index: 3; /* Ensure scanlines appear above CRT glow */
+}
+
+/* optional subtle roll / flicker */
+@keyframes roll {
+  to { background-position-y: calc(var(--line) + var(--gap)); }
+}
+.interlace.roll::after {
+  animation: roll 1s linear infinite;
+}
+
+/* respect accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .interlace.roll::after { animation: none; }
+}

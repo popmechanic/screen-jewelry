@@ -2,18 +2,18 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import db from '@/lib/db';
-import { ChevronUp, ChevronDown, ExternalLink, Info, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronUp, ChevronDown, ExternalLink, Info } from 'lucide-react';
 import Link from 'next/link';
 import Navigation from '@/components/Navigation';
 
 
-function GalleryContent() {
+function GalleryContent({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showInfo, setShowInfo] = useState(false);
-  const [fitMode, setFitMode] = useState<'cover' | 'contain'>('cover');
+  const [fitMode, setFitMode] = useState<'cover' | 'contain'>('contain');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const user = db.useUser();
+  const user = isAuthenticated ? db.useUser() : null;
 
   // Fetch only published captures
   const { data, isLoading, error } = db.useQuery({
@@ -27,6 +27,13 @@ function GalleryContent() {
   });
 
   const captures = data?.captures || [];
+
+  // Ensure we start at the top on mount
+  useEffect(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, []);
 
   // Keyboard navigation
   useEffect(() => {
@@ -46,10 +53,6 @@ function GalleryContent() {
         case 'I':
           setShowInfo(!showInfo);
           break;
-        case 'f':
-        case 'F':
-          setFitMode(prev => prev === 'cover' ? 'contain' : 'cover');
-          break;
       }
     };
 
@@ -58,24 +61,46 @@ function GalleryContent() {
   }, [currentIndex, captures.length, showInfo]);
 
   const navigateNext = () => {
-    if (currentIndex < captures.length - 1 && scrollContainerRef.current) {
-      const newIndex = currentIndex + 1;
-      setCurrentIndex(newIndex);
-      scrollContainerRef.current.scrollTo({
-        top: newIndex * scrollContainerRef.current.clientHeight,
-        behavior: 'smooth'
-      });
+    if (scrollContainerRef.current) {
+      const headerHeight = window.innerHeight * 0.5;
+
+      if (currentIndex === -1 && captures.length > 0) {
+        // From header view to first full image
+        scrollContainerRef.current.scrollTo({
+          top: headerHeight,
+          behavior: 'smooth'
+        });
+        setCurrentIndex(0);
+      } else if (currentIndex < captures.length - 1) {
+        const newIndex = currentIndex + 1;
+        setCurrentIndex(newIndex);
+        scrollContainerRef.current.scrollTo({
+          top: headerHeight + (newIndex * window.innerHeight),
+          behavior: 'smooth'
+        });
+      }
     }
   };
 
   const navigatePrevious = () => {
-    if (currentIndex > 0 && scrollContainerRef.current) {
-      const newIndex = currentIndex - 1;
-      setCurrentIndex(newIndex);
-      scrollContainerRef.current.scrollTo({
-        top: newIndex * scrollContainerRef.current.clientHeight,
-        behavior: 'smooth'
-      });
+    if (scrollContainerRef.current) {
+      const headerHeight = window.innerHeight * 0.5;
+
+      if (currentIndex > 0) {
+        const newIndex = currentIndex - 1;
+        setCurrentIndex(newIndex);
+        scrollContainerRef.current.scrollTo({
+          top: headerHeight + (newIndex * window.innerHeight),
+          behavior: 'smooth'
+        });
+      } else if (currentIndex === 0 || currentIndex === -1) {
+        // Go back to header view
+        scrollContainerRef.current.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
+        setCurrentIndex(-1);
+      }
     }
   };
 
@@ -112,36 +137,58 @@ function GalleryContent() {
 
 
   return (
-    <div className="relative h-screen bg-black overflow-hidden">
-      {/* Main Gallery Container with Scroll Snap */}
+    <div className="relative bg-black">
+      {/* Main scrollable container */}
       <div
         ref={scrollContainerRef}
-        className="h-full snap-y snap-mandatory overflow-y-auto scrollbar-hide"
+        className="h-screen overflow-y-auto scrollbar-hide snap-y snap-proximity"
         onScroll={(e) => {
           const container = e.currentTarget;
           const scrollPosition = container.scrollTop;
-          const itemHeight = container.clientHeight;
-          const newIndex = Math.round(scrollPosition / itemHeight);
-          if (newIndex !== currentIndex && newIndex >= 0 && newIndex < captures.length) {
-            setCurrentIndex(newIndex);
+          const headerHeight = window.innerHeight * 0.5;
+
+          // Calculate which image is in view
+          if (scrollPosition < headerHeight) {
+            // Still showing header
+            setCurrentIndex(-1);
+          } else {
+            // Calculate which gallery image is shown
+            const adjustedScroll = scrollPosition - headerHeight;
+            const newIndex = Math.round(adjustedScroll / window.innerHeight);
+            if (newIndex !== currentIndex && newIndex >= 0 && newIndex < captures.length) {
+              setCurrentIndex(newIndex);
+            }
           }
         }}
       >
-        {captures.map((capture, index) => (
-          <div
-            key={capture.id}
-            className="h-screen snap-start relative"
-            onMouseEnter={() => setHoveredIndex(index)}
-            onMouseLeave={() => setHoveredIndex(null)}
-          >
-            {/* Frame Image - Fullscreen */}
+          {/* Header Image - standalone, not a snap point */}
+          <div className="relative w-full" style={{ height: '50vh' }}>
+            <img
+              src="/header.jpg"
+              alt="Screen Jewelry"
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* Gallery images - all full screen with snap points */}
+          {captures.map((capture, index) => (
+            <div
+              key={capture.id}
+              className="h-screen snap-start relative"
+              onMouseEnter={() => setHoveredIndex(index)}
+              onMouseLeave={() => setHoveredIndex(null)}
+            >
+            {/* Frame Image - Fullscreen with interlace effect */}
             {capture.frameFile?.url || capture.frameUrl ? (
-              <img
-                src={capture.frameFile?.url || capture.frameUrl}
-                alt={capture.movieName}
-                className={`absolute inset-0 w-full h-full object-${fitMode}`}
-                style={{ objectPosition: 'center' }}
-              />
+              <div className="absolute inset-0 bg-black" key={`img-${capture.id}`}>
+                <img
+                  src={capture.frameFile?.url || capture.frameUrl}
+                  alt={capture.movieName}
+                  className={`w-full h-full ${fitMode === 'cover' ? 'object-cover' : 'object-contain'}`}
+                />
+                {/* Interlace effect overlay - only on the image */}
+                <div className="interlace roll absolute inset-0 pointer-events-none" style={{ zIndex: 2 }} key={`interlace-${capture.id}`}></div>
+              </div>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-white">
                 No image available
@@ -150,7 +197,7 @@ function GalleryContent() {
 
             {/* Hover Metadata Overlay */}
             <div
-              className={`absolute top-0 left-0 w-1/3 h-1/3 p-8 transition-opacity duration-300 ${
+              className={`absolute top-0 left-0 w-1/3 h-1/3 p-8 transition-opacity duration-300 z-10 ${
                 hoveredIndex === index ? 'opacity-100' : 'opacity-0 pointer-events-none'
               }`}
               style={{
@@ -213,7 +260,7 @@ function GalleryContent() {
       </div>
 
       {/* Navigation Controls */}
-      <div className="absolute right-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-2">
+      <div className="fixed right-4 top-1/2 transform -translate-y-1/2 flex flex-col space-y-2 z-20">
         <button
           onClick={navigatePrevious}
           disabled={currentIndex === 0}
@@ -235,20 +282,7 @@ function GalleryContent() {
       </div>
 
       {/* Control Buttons */}
-      <div className="absolute bottom-4 right-4 flex flex-col space-y-2">
-        {/* Fit Mode Toggle */}
-        <button
-          onClick={() => setFitMode(fitMode === 'cover' ? 'contain' : 'cover')}
-          className="p-2 bg-white/10 backdrop-blur rounded-full hover:bg-white/20 transition"
-          title={fitMode === 'cover' ? 'Switch to fit mode (show entire image)' : 'Switch to fill mode (fullscreen)'}
-        >
-          {fitMode === 'cover' ? (
-            <Minimize2 className="w-6 h-6 text-white" />
-          ) : (
-            <Maximize2 className="w-6 h-6 text-white" />
-          )}
-        </button>
-
+      <div className="fixed bottom-4 right-4 z-20">
         {/* Info Toggle Button */}
         <button
           onClick={() => setShowInfo(!showInfo)}
@@ -260,13 +294,15 @@ function GalleryContent() {
       </div>
 
       {/* Progress Indicator */}
-      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-white text-sm opacity-50">
-        {currentIndex + 1} / {captures.length}
-      </div>
+      {currentIndex >= 0 && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 text-white text-sm opacity-50 z-20">
+          {currentIndex + 1} / {captures.length}
+        </div>
+      )}
 
       {/* Navigation for logged in users */}
       {user && (
-        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur rounded-lg p-2">
+        <div className="fixed top-4 right-4 bg-white/90 backdrop-blur rounded-lg p-2 z-20">
           <Navigation />
         </div>
       )}
@@ -278,10 +314,10 @@ export default function Home() {
   return (
     <>
       <db.SignedOut>
-        <GalleryContent />
+        <GalleryContent isAuthenticated={false} />
       </db.SignedOut>
       <db.SignedIn>
-        <GalleryContent />
+        <GalleryContent isAuthenticated={true} />
       </db.SignedIn>
     </>
   );
