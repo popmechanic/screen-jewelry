@@ -61,46 +61,24 @@ function GalleryContent({ isAuthenticated = false }: { isAuthenticated?: boolean
   }, [currentIndex, captures.length, showInfo]);
 
   const navigateNext = () => {
-    if (scrollContainerRef.current) {
-      const headerHeight = window.innerHeight * 0.5;
-
-      if (currentIndex === -1 && captures.length > 0) {
-        // From header view to first full image
-        scrollContainerRef.current.scrollTo({
-          top: headerHeight,
-          behavior: 'smooth'
-        });
-        setCurrentIndex(0);
-      } else if (currentIndex < captures.length - 1) {
-        const newIndex = currentIndex + 1;
-        setCurrentIndex(newIndex);
-        scrollContainerRef.current.scrollTo({
-          top: headerHeight + (newIndex * window.innerHeight),
-          behavior: 'smooth'
-        });
-      }
+    if (currentIndex < captures.length - 1 && scrollContainerRef.current) {
+      const newIndex = currentIndex + 1;
+      setCurrentIndex(newIndex);
+      scrollContainerRef.current.scrollTo({
+        top: newIndex * window.innerHeight,
+        behavior: 'smooth'
+      });
     }
   };
 
   const navigatePrevious = () => {
-    if (scrollContainerRef.current) {
-      const headerHeight = window.innerHeight * 0.5;
-
-      if (currentIndex > 0) {
-        const newIndex = currentIndex - 1;
-        setCurrentIndex(newIndex);
-        scrollContainerRef.current.scrollTo({
-          top: headerHeight + (newIndex * window.innerHeight),
-          behavior: 'smooth'
-        });
-      } else if (currentIndex === 0 || currentIndex === -1) {
-        // Go back to header view
-        scrollContainerRef.current.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
-        setCurrentIndex(-1);
-      }
+    if (currentIndex > 0 && scrollContainerRef.current) {
+      const newIndex = currentIndex - 1;
+      setCurrentIndex(newIndex);
+      scrollContainerRef.current.scrollTo({
+        top: newIndex * window.innerHeight,
+        behavior: 'smooth'
+      });
     }
   };
 
@@ -141,34 +119,18 @@ function GalleryContent({ isAuthenticated = false }: { isAuthenticated?: boolean
       {/* Main scrollable container */}
       <div
         ref={scrollContainerRef}
-        className="h-screen overflow-y-auto scrollbar-hide snap-y snap-proximity"
+        className="h-screen overflow-y-auto scrollbar-hide snap-y snap-mandatory"
         onScroll={(e) => {
           const container = e.currentTarget;
           const scrollPosition = container.scrollTop;
-          const headerHeight = window.innerHeight * 0.5;
 
           // Calculate which image is in view
-          if (scrollPosition < headerHeight) {
-            // Still showing header
-            setCurrentIndex(-1);
-          } else {
-            // Calculate which gallery image is shown
-            const adjustedScroll = scrollPosition - headerHeight;
-            const newIndex = Math.round(adjustedScroll / window.innerHeight);
-            if (newIndex !== currentIndex && newIndex >= 0 && newIndex < captures.length) {
-              setCurrentIndex(newIndex);
-            }
+          const newIndex = Math.round(scrollPosition / window.innerHeight);
+          if (newIndex !== currentIndex && newIndex >= 0 && newIndex < captures.length) {
+            setCurrentIndex(newIndex);
           }
         }}
       >
-          {/* Header Image - standalone, not a snap point */}
-          <div className="relative w-full" style={{ height: '50vh' }}>
-            <img
-              src="/header.jpg"
-              alt="Screen Jewelry"
-              className="w-full h-full object-cover"
-            />
-          </div>
 
           {/* Gallery images - all full screen with snap points */}
           {captures.map((capture, index) => (
@@ -180,14 +142,22 @@ function GalleryContent({ isAuthenticated = false }: { isAuthenticated?: boolean
             >
             {/* Frame Image - Fullscreen with interlace effect */}
             {capture.frameFile?.url || capture.frameUrl ? (
-              <div className="absolute inset-0 bg-black" key={`img-${capture.id}`}>
+              <div className="absolute inset-0 bg-black">
                 <img
                   src={capture.frameFile?.url || capture.frameUrl}
                   alt={capture.movieName}
                   className={`w-full h-full ${fitMode === 'cover' ? 'object-cover' : 'object-contain'}`}
                 />
                 {/* Interlace effect overlay - only on the image */}
-                <div className="interlace roll absolute inset-0 pointer-events-none" style={{ zIndex: 2 }} key={`interlace-${capture.id}`}></div>
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    zIndex: 20,
+                    backgroundImage: 'repeating-linear-gradient(0deg, rgba(0,0,0,0.16) 0, rgba(0,0,0,0.16) 2px, transparent 2px, transparent 4px)',
+                    mixBlendMode: 'multiply',
+                    animation: 'roll 1s linear infinite'
+                  }}
+                ></div>
               </div>
             ) : (
               <div className="absolute inset-0 flex items-center justify-center text-white">
@@ -294,11 +264,9 @@ function GalleryContent({ isAuthenticated = false }: { isAuthenticated?: boolean
       </div>
 
       {/* Progress Indicator */}
-      {currentIndex >= 0 && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 text-white text-sm opacity-50 z-20">
-          {currentIndex + 1} / {captures.length}
-        </div>
-      )}
+      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 text-white text-sm opacity-50 z-20">
+        {currentIndex + 1} / {captures.length}
+      </div>
 
       {/* Navigation for logged in users */}
       {user && (

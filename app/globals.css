@@ -84,7 +84,7 @@ body {
 
 /* optional subtle roll / flicker */
 @keyframes roll {
-  to { background-position-y: calc(var(--line) + var(--gap)); }
+  to { background-position-y: 4px; }
 }
 .interlace.roll::after {
   animation: roll 1s linear infinite;
