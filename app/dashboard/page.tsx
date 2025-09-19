@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import db from '@/lib/db';
 import { Trash2, Eye, EyeOff, Search, Film, Edit2, Upload, X } from 'lucide-react';
-import Link from 'next/link';
 import { Login } from '@/components/Auth';
 import Navigation from '@/components/Navigation';
 import EditCaptureModal, { EditCaptureData } from '@/components/EditCaptureModal';
@@ -139,7 +138,10 @@ function DashboardContent() {
 
       // Upload the image file
       const filePath = `captures/${Date.now()}_${sanitizedFilename || 'image.jpg'}`;
-      const { data: fileData } = await db.storage.uploadFile(filePath, uploadFormData.imageFile);
+      const uploadResult = await db.storage.uploadFile(filePath, uploadFormData.imageFile);
+
+      // Get the file URL
+      const fileUrl = await db.storage.getDownloadUrl(filePath);
 
       // Create the capture
       const tagsArray = uploadFormData.tags
@@ -156,10 +158,10 @@ function DashboardContent() {
           tags: tagsArray,
           published: uploadFormData.published,
           capturedAt: Date.now(),
-          frameUrl: fileData.downloadUrl || ''
+          frameUrl: fileUrl || ''
         })
           .link({ editor: user?.id })
-          .link({ frameFile: fileData.id })
+          .link({ frameFile: uploadResult.data.id })
       ]);
 
       // Reset form and close modal

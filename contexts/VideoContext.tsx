@@ -16,7 +16,7 @@ interface VideoContextType {
   currentTime: number;
   duration: number;
   setVideoUrl: (url: string | null) => void;
-  setVideoInfo: (info: VideoInfo | null) => void;
+  setVideoInfo: (info: VideoInfo) => void;
   setCurrentTime: (time: number) => void;
   setDuration: (duration: number) => void;
   clearVideo: () => void;
@@ -57,7 +57,7 @@ export function VideoProvider({ children }: { children: ReactNode }) {
         setCurrentTime,
         setDuration,
         clearVideo,
-        fileInputRef
+        fileInputRef: fileInputRef as React.RefObject<HTMLInputElement>
       }}
     >
       {children}

@@ -85,15 +85,15 @@ export default function VideoPlayer({ onCapture }: VideoPlayerProps) {
   };
 
   const handleLoadedMetadata = () => {
-    if (videoRef.current) {
+    if (videoRef.current && videoInfo) {
       const video = videoRef.current;
       setDuration(video.duration);
-      setVideoInfo(prev => prev ? {
-        ...prev,
+      setVideoInfo({
+        ...videoInfo,
         duration: video.duration,
         width: video.videoWidth,
         height: video.videoHeight,
-      } : null);
+      });
     }
   };
 
